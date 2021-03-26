@@ -1,27 +1,78 @@
-import Head from "next/head"
-import styles from "../styles/Home.module.css"
-import { getUsers } from '../utils/users.js'
-import { useEffect } from 'react'
+// pages/index.js 
+import { useState, useEffect } from 'react';
+import Head from 'next/head';
+import fire from '../config/fire-config';
+import CreatePost from '../components/CreatePost';
+import Link from 'next/link';
 
-export default function Home() {
-  useEffect(() => {
-    getUsers();
-  }, [])
+const Home = () => {
+  const [blogs, setBlogs] = useState([]);
+  const [notification, setNotification] = useState('');
+  const [loggedIn, setLoggedIn] = useState(false);
+
+  fire.auth()
+    .onAuthStateChanged((user) => {
+      if (user) {
+        setLoggedIn(true)
+      } else {
+        setLoggedIn(false)
+      }
+    })
+
+    useEffect(() => {
+    fire.firestore()
+      .collection('blog')
+      .onSnapshot(snap => {
+        const blogs = snap.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data()
+        }));
+        setBlogs(blogs);
+      });
+  }, []);
+
+  const handleLogout = () => {
+    fire.auth()
+      .signOut()
+      .then(() => {
+        setNotification('Logged out')
+        setTimeout(() => {
+          setNotification('')
+        }, 2000)
+      });
+  }
 
   return (
-    <div className={styles.container}>
+    <div>
       <Head>
-        <title>Create Next App</title>
-        <link rel="icon" href="/favicon.ico" />
+        <title>Blog App</title>
       </Head>
-
-      <main className={styles.main}>
-        <h1 className={styles.title}>
-          Next.js
-        </h1>
-
-      </main>
-
+      <h1>Blog</h1>
+      {notification}
+      {!loggedIn 
+      ?
+        <div>
+          <Link href="/users/register">
+            <a>Register</a>
+          </Link> | 
+          <Link href="/users/login">
+            <a> Login</a>
+          </Link>
+        </div>
+      :
+        <button onClick={handleLogout}>Logout</button>
+      }
+    <ul>
+        {blogs.map(blog =>
+          <li key={blog.id}>
+            <Link href="/blog/[id]" as={'/blog/' + blog.id }>
+              <a itemProp="hello">{blog.title}</a>
+            </Link>
+          </li>
+        )}
+      </ul>
+      {loggedIn && <CreatePost />}
     </div>
-  );
+  )
 }
+export default Home;
